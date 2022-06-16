@@ -2,9 +2,7 @@
 require "net/http"
 require "uri"
 require "rexml/document"
-
-# Массив строк для облачности, описанный на сайте метеосервиса
-CLOUDINESS = %w(Ясно Малооблачно Облачно Пасмурно).freeze
+require_relative "lib/meteoservice_forecast"
 
 # Сформируем адрес запроса с сайта метеосервиса
 #
@@ -21,29 +19,18 @@ doc = REXML::Document.new(response.body)
 # Получаем имя города из XML, город лежит в ноде REPORT/TOWN
 city_name = URI.unescape(doc.root.elements['REPORT/TOWN'].attributes['sname'])
 
-# Достаем первый XML тэг из списка <FORECAST> внутри <TOWN> — прогноз на
-# ближайшее время со всей нужной нам информацией.
-forecast = doc.root.elements['REPORT/TOWN/FORECAST']
-
-# Записываем минимальное и максимальное значение температуры из аттрибутов min
-# и max вложенного в элемент FORECAST тэга TEMPERATURE
-min_temp = forecast.elements['TEMPERATURE'].attributes['min']
-max_temp = forecast.elements['TEMPERATURE'].attributes['max']
-
-# Записываем максимальную скорость ветра из атриубута max тэга WIND
-max_wind = forecast.elements['WIND'].attributes['max']
-
-# Достаем из тега PHENOMENA атрибут cloudiness и по его значению находим строку
-# с обозначением облачности из массива CLOUDINESS
-clouds_index = forecast.elements['PHENOMENA'].attributes['cloudiness'].to_i
-clouds = CLOUDINESS[clouds_index]
-
-# Выводим всю информацию на экран
 puts city_name
-puts "Температура — от #{min_temp} до #{max_temp} С"
-puts "Ветер #{max_wind} м/с"
-puts clouds
 
-puts
-puts "Предоставлено Meteoservice.ru"
-puts "https://www.meteoservice.ru/"
+# Перебираем в цикле все элементы FORECAST
+# каждый такой элемент хранит информацию о погоде для определенного времени суток (утро, день, вечер, ночь)
+doc.root.elements.each('REPORT/TOWN/FORECAST') do |element|
+  # Считываем данные из xml и создает объект класса MeteoserviceForecast
+  forecast = MeteoserviceForecast.from_xml(element)
+
+  # Выводим информацию об объекте, в котором уже сформированы строки с параметрами для вывода на экран
+  puts forecast
+end
+
+puts MeteoserviceForecast.copyright
+
+
